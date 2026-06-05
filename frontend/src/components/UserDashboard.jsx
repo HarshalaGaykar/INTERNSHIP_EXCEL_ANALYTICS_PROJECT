@@ -158,7 +158,7 @@ const UserDashboard = ({ history, addToHistory, setHistory }) => { // Added setH
         formData.append("totalChunks", String(totalChunks));
         formData.append("filename", file.name);
 
-        await api.post("/upload/upload/chunk", formData);
+        await api.post("/upload/chunk", formData);
         setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
       }
 
@@ -283,7 +283,7 @@ const UserDashboard = ({ history, addToHistory, setHistory }) => { // Added setH
             const formData = new FormData();
             formData.append("file", file);
             const token = localStorage.getItem("token");
-            const res = await api.post("/upload/upload", formData, {
+            const res = await api.post("/upload", formData, {
               headers: {
                 "x-auth-token": token,
                 "Content-Type": "multipart/form-data",

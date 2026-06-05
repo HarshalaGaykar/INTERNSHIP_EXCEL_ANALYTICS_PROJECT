@@ -21,7 +21,7 @@ const upload = multer({
 });
 
 // Initialize a multipart upload and obtain an uploadId
-router.post("/upload/init", auth, (req, res) => {
+router.post("/init", auth, (req, res) => {
   const { filename } = req.body;
   if (!filename) return res.status(400).json({ msg: "Filename required" });
   const { randomUUID } = require("crypto");
@@ -31,7 +31,7 @@ router.post("/upload/init", auth, (req, res) => {
 });
 
 // Chunked file upload endpoint
-router.post("/upload/chunk", [auth, upload.single("file")], async (req, res) => {
+router.post("/chunk", [auth, upload.single("file")], async (req, res) => {
   try {
     const { uploadId, chunkIndex, totalChunks, filename } = req.body;
     if (!uploadId || !chunkIndex || !totalChunks || !filename) {
@@ -103,7 +103,7 @@ router.post("/upload/chunk", [auth, upload.single("file")], async (req, res) => 
 });
 
 // Existing single-file upload endpoint
-router.post("/upload", [auth, upload.single("file")], async (req, res) => {
+router.post("/", [auth, upload.single("file")], async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ msg: "No file uploaded" });
 
