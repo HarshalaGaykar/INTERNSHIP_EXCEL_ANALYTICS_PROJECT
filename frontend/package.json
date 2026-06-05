@@ -1,0 +1,41 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.20",
+    "axios": "^1.17.0",
+    "chart.js": "^4.5.0",
+    "chartjs-plugin-datalabels": "^2.2.0",
+    "framer-motion": "^12.23.6",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "jwt-decode": "^4.0.0",
+    "lucide-react": "^0.525.0",
+    "plotly.js-gl3d-dist-min": "^3.6.0",
+    "postcss": "^8.5.15",
+    "react": "^18.2.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.30.4",
+    "tailwindcss": "^3.4.19"
+  },
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "install:clean": "npm ci"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^5.2.0",
+    "jsdom": "^29.1.1",
+    "vite": "^7.3.5",
+    "vitest": "^4.1.8"
+  }
+}
