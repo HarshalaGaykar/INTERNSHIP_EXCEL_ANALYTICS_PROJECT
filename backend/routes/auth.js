@@ -46,7 +46,7 @@ router.post("/signup", async (req, res) => {
     });
     res.status(201).json({ msg: "User created and logged in" });
   } catch (error) {
-    res.status(500).json({ msg: "Server error" });
+    console.error("Signup Crash:", error); res.status(500).json({ msg: "Server error", details: error.message });
   }
 });
 
@@ -83,7 +83,7 @@ router.post("/login", async (req, res) => {
     });
     res.json({ msg: "Logged in successfully" });
   } catch (error) {
-    res.status(500).json({ msg: "Server error" });
+    console.error("Signup Crash:", error); res.status(500).json({ msg: "Server error", details: error.message });
   }
 });
 
