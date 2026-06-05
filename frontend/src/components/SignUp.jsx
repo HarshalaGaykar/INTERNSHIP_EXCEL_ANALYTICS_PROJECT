@@ -15,9 +15,9 @@ const SignUp = () => {
         password,
       });
       console.log("Signup response:", res.status, res.data);
-      if ((res.status === 201 && res.data.msg === "Signup successful") || res.data.token) {
-        alert("Signup successful! Please log in.");
-        navigate("/login");
+      if (res.status === 201 || res.status === 200) {
+        alert("Signup successful! You are now logged in.");
+        navigate("/dashboard");
       } else {
         throw new Error(res.data.msg || "Unexpected response from server");
       }
