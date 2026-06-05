@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
 import api from "../api";
 
 const Login = () => {
@@ -11,10 +10,11 @@ const Login = () => {
   const handleSubmit = async (e) => {
   e.preventDefault();
   try {
-    await api.post("/auth/login", { username, password });
-    // After successful login, fetch user role via /auth/me
-    const meRes = await api.get("/auth/me");
-    const role = meRes.data.role?.toLowerCase();
+    const loginRes = await api.post("/auth/login", { username, password });
+    if (loginRes.data.token) {
+      localStorage.setItem("token", loginRes.data.token);
+    }
+    const role = loginRes.data.role?.toLowerCase();
     if (role === "admin") {
       navigate("/admin");
     } else {

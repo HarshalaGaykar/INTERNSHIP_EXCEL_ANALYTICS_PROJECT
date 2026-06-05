@@ -5,6 +5,17 @@ const User = require("../models/User");
 const auth = require("../middleware/auth");
 const router = express.Router();
 
+const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+const authCookieOptions = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
+};
+const clearCookieOptions = {
+  ...authCookieOptions,
+  expires: new Date(0),
+};
+
 router.post("/signup", async (req, res) => {
   const username = req.body.username?.trim();
   const { password } = req.body;
@@ -33,18 +44,14 @@ router.post("/signup", async (req, res) => {
 
     // Set HttpOnly cookies for both tokens
     res.cookie("token", accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      ...authCookieOptions,
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      ...authCookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-    res.status(201).json({ msg: "User created and logged in" });
+    res.status(201).json({ msg: "User created and logged in", token: accessToken, role: user.role });
   } catch (error) {
     console.error("Signup Crash:", error); res.status(500).json({ msg: "Server error", details: error.message });
   }
@@ -70,18 +77,14 @@ router.post("/login", async (req, res) => {
 
     // Set HttpOnly cookies for both tokens
     res.cookie("token", accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      ...authCookieOptions,
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      ...authCookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-    res.json({ msg: "Logged in successfully" });
+    res.json({ msg: "Logged in successfully", token: accessToken, role: user.role });
   } catch (error) {
     console.error("Signup Crash:", error); res.status(500).json({ msg: "Server error", details: error.message });
   }
@@ -103,12 +106,10 @@ router.post("/refresh", async (req, res) => {
 
     const newAccessToken = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "15m" });
     res.cookie("token", newAccessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      ...authCookieOptions,
       maxAge: 15 * 60 * 1000,
     });
-    res.json({ msg: "Access token refreshed" });
+    res.json({ msg: "Access token refreshed", token: newAccessToken, role: user.role });
   } catch (error) {
     res.status(401).json({ msg: "Invalid refresh token" });
   }
@@ -116,8 +117,8 @@ router.post("/refresh", async (req, res) => {
 
 // Updated logout to clear both cookies
 router.post("/logout", (req, res) => {
-  res.cookie("token", "", { httpOnly: true, expires: new Date(0) });
-  res.cookie("refreshToken", "", { httpOnly: true, expires: new Date(0) });
+  res.cookie("token", "", clearCookieOptions);
+  res.cookie("refreshToken", "", clearCookieOptions);
   res.json({ msg: "Logged out successfully" });
 });
 module.exports = router;

@@ -15,7 +15,10 @@ const SignUp = () => {
         password,
       });
       console.log("Signup response:", res.status, res.data);
-      if (res.status === 201 || res.status === 200) {
+      if (res.status === 201 || res.status === 200 || res.data.token) {
+        if (res.data.token) {
+          localStorage.setItem("token", res.data.token);
+        }
         alert("Signup successful! You are now logged in.");
         navigate("/dashboard");
       } else {

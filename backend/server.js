@@ -14,17 +14,14 @@ if (missingEnvironmentVariables.length) {
 }
 
 const app = express();
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
+const allowedOrigins = (
+  process.env.CLIENT_URL ||
+  "http://localhost:5173,http://localhost:3000,https://internship-excel-analytics-project-1.onrender.com"
+)
   .split(",")
-  .map((origin) => origin.trim());
-console.log("CORS Allowed Origins:", allowedOrigins);
-app.use(cors({
-  origin: function (origin, callback) {
-    // Reflect the origin back for debugging
-    callback(null, origin || true);
-  },
-  credentials: true
-}));
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" })); // Increased limit for large base64 images
 app.use(express.urlencoded({ limit: "10mb", extended: true }));

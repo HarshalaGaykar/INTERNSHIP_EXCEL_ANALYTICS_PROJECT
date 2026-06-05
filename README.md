@@ -32,7 +32,7 @@ Prerequisites: Node.js 20+, npm, and a MongoDB database.
    npm start
    ```
 
-The frontend runs at `http://localhost:3000` and the API at
+The frontend runs at `http://localhost:5173` and the API at
 `http://localhost:5000`.
 
 ## Production deployment
@@ -41,7 +41,8 @@ The included `render.yaml` can create both services from the repository. In
 Render, create a Blueprint from the repo, then provide:
 
 - Backend `MONGO_URI`: your managed MongoDB connection string
-- Backend `CLIENT_URL`: the deployed static-site URL
+- Backend `CLIENT_URL`: the deployed static-site URL,
+  `https://internship-excel-analytics-project-1.onrender.com`
 - Frontend `VITE_API_URL`: the deployed API URL followed by `/api`
 
 Render generates `JWT_SECRET` automatically. Trigger a new frontend deployment
@@ -63,9 +64,10 @@ Deploy the frontend as a static site with:
 - Root directory: `frontend`
 - Environment variable: `VITE_API_URL=https://your-api-host/api`
 
-Set backend `CLIENT_URL` to the final frontend URL. For multiple allowed origins,
-use a comma-separated value. Use MongoDB Atlas or another managed MongoDB service;
-do not commit database credentials.
+Set backend `CLIENT_URL` to the final frontend URL. For local Vite development,
+use `CLIENT_URL=http://localhost:5173`. For multiple allowed origins, use a
+comma-separated value. Use MongoDB Atlas or another managed MongoDB service; do
+not commit database credentials.
 
 ## Security notes
 
