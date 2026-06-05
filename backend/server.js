@@ -17,7 +17,14 @@ const app = express();
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
   .split(",")
   .map((origin) => origin.trim());
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+console.log("CORS Allowed Origins:", allowedOrigins);
+app.use(cors({
+  origin: function (origin, callback) {
+    // Reflect the origin back for debugging
+    callback(null, origin || true);
+  },
+  credentials: true
+}));
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" })); // Increased limit for large base64 images
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
