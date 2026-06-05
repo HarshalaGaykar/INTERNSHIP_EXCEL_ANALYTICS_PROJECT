@@ -120,11 +120,4 @@ router.post("/logout", (req, res) => {
   res.cookie("refreshToken", "", { httpOnly: true, expires: new Date(0) });
   res.json({ msg: "Logged out successfully" });
 });
-  res.cookie("token", "", {
-    httpOnly: true,
-    expires: new Date(0),
-  });
-  res.json({ msg: "Logged out successfully" });
-});
-
 module.exports = router;
