@@ -19,6 +19,18 @@ const upload = multer({
     callback(null, hasExcelExtension && allowedMimeTypes.has(file.mimetype));
   },
 });
+const chunkUpload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+const getFirstWorksheetRows = (workbookRows) => {
+  if (Array.isArray(workbookRows[0])) return workbookRows;
+  if (workbookRows[0]?.data && Array.isArray(workbookRows[0].data)) {
+    return workbookRows[0].data;
+  }
+  return [];
+};
 
 // Initialize a multipart upload and obtain an uploadId
 router.post("/init", auth, (req, res) => {
@@ -31,9 +43,10 @@ router.post("/init", auth, (req, res) => {
 });
 
 // Chunked file upload endpoint
-router.post("/chunk", [auth, upload.single("file")], async (req, res) => {
+router.post("/chunk", [auth, chunkUpload.single("file")], async (req, res) => {
   try {
     const { uploadId, chunkIndex, totalChunks, filename } = req.body;
+    if (!req.file) return res.status(400).json({ msg: "No file chunk uploaded" });
     if (!uploadId || !chunkIndex || !totalChunks || !filename) {
       return res.status(400).json({ msg: "Missing upload metadata" });
     }
@@ -63,7 +76,8 @@ router.post("/chunk", [auth, upload.single("file")], async (req, res) => {
       const combinedBuffer = Buffer.concat(buffers);
 
       // Process the combined Excel file (same logic as normal upload)
-      const rows = await readXlsxFile(combinedBuffer);
+      const workbookRows = await readXlsxFile(combinedBuffer);
+      const rows = getFirstWorksheetRows(workbookRows);
       if (rows.length < 2) return res.status(400).json({ msg: "The first worksheet is empty" });
 
       const columnCount = Math.max(...rows.map((row) => row.length));
@@ -107,7 +121,8 @@ router.post("/", [auth, upload.single("file")], async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ msg: "No file uploaded" });
 
-    const rows = await readXlsxFile(req.file.buffer);
+    const workbookRows = await readXlsxFile(req.file.buffer);
+    const rows = getFirstWorksheetRows(workbookRows);
     if (rows.length < 2) return res.status(400).json({ msg: "The first worksheet is empty" });
 
     const columnCount = Math.max(...rows.map((row) => row.length));
