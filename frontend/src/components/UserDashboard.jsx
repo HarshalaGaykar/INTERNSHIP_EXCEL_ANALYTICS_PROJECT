@@ -144,6 +144,7 @@ const UserDashboard = ({ history, addToHistory, setHistory }) => { // Added setH
       // Step 1: Initialize upload to get a session uploadId
       const initRes = await api.post("/upload/init", { filename: file.name });
       const { uploadId } = initRes.data;
+      let savedUploadId = uploadId;
 
       // Step 2: Send chunks one by one
       for (let i = 0; i < totalChunks; i++) {
@@ -158,7 +159,10 @@ const UserDashboard = ({ history, addToHistory, setHistory }) => { // Added setH
         formData.append("totalChunks", String(totalChunks));
         formData.append("filename", file.name);
 
-        await api.post("/upload/chunk", formData);
+        const chunkRes = await api.post("/upload/chunk", formData);
+        if (chunkRes.data.uploadId) {
+          savedUploadId = chunkRes.data.uploadId;
+        }
         setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
       }
 
@@ -169,7 +173,8 @@ const UserDashboard = ({ history, addToHistory, setHistory }) => { // Added setH
       setCurrentPage(updatedHistory.data.currentPage || 1);
       setTotalPages(updatedHistory.data.totalPages || 1);
       addToHistory(`Uploaded file: ${file.name} at ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour12: true })}`);
-      navigate("/visualize", { state: { uploadId } });
+      localStorage.setItem("uploadId", savedUploadId);
+      navigate("/visualize", { state: { uploadId: savedUploadId } });
     } catch (error) {
       console.error("Upload error:", error.message);
       alert("Failed to upload file: " + (error.response?.data?.msg || error.message));

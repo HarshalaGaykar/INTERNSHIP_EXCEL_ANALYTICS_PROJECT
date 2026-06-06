@@ -6,6 +6,7 @@ const Upload = require("../models/Upload");
 const UploadData = require("../models/UploadData");
 const UploadVisualization = require("../models/UploadVisualization");
 const auth = require("../middleware/auth");
+const mongoose = require("mongoose");
 
 const storage = multer.memoryStorage();
 const allowedMimeTypes = new Set([
@@ -261,6 +262,9 @@ router.post("/visualize/:uploadId", auth, async (req, res) => {
 
 router.get("/:uploadId", auth, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.uploadId)) {
+      return res.status(400).json({ msg: "Invalid upload ID" });
+    }
     const upload = await Upload.findOne({ _id: req.params.uploadId, userId: req.user.id });
     if (!upload) return res.status(404).json({ msg: "Upload not found" });
     
