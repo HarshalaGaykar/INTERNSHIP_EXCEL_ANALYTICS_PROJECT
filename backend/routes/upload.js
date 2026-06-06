@@ -185,12 +185,25 @@ router.get("/history", auth, async (req, res) => {
     const uploads = await Upload.find(query)
       .sort({ uploadedAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
+
+    const uploadIds = uploads.map((upload) => upload._id);
+    const visualizations = await UploadVisualization.find({ uploadId: { $in: uploadIds } }).lean();
+    const visualizationsByUpload = visualizations.reduce((groups, visualization) => {
+      const key = visualization.uploadId.toString();
+      groups[key] = groups[key] || [];
+      groups[key].push(visualization);
+      return groups;
+    }, {});
 
     const total = await Upload.countDocuments(query);
 
     res.json({
-      uploads,
+      uploads: uploads.map((upload) => ({
+        ...upload,
+        visualizations: visualizationsByUpload[upload._id.toString()] || [],
+      })),
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalUploads: total
@@ -230,7 +243,7 @@ router.get("/latest", auth, async (req, res) => {
 router.post("/visualize/:uploadId", auth, async (req, res) => {
   try {
     const { uploadId } = req.params;
-    const { type, data, image, xAxis, yAxis } = req.body;
+    const { type, data, image, xAxis, yAxis, filename } = req.body;
 
     if (!uploadId || !type || !xAxis || !yAxis || !image) {
       return res.status(400).json({ msg: "Missing required fields: type, xAxis, yAxis, or image" });
@@ -248,6 +261,7 @@ router.post("/visualize/:uploadId", auth, async (req, res) => {
       visualizationImage: image,
       xAxis,
       yAxis,
+      filename,
     });
 
     await visualization.save();

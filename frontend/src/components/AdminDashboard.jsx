@@ -1,246 +1,235 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BarChart, FileText, LogOut, Shield, Users } from "lucide-react";
 import api from "../api";
+
+const StatCard = ({ title, value, icon: Icon, accent = "#4A90E2" }) => (
+  <div className="bg-[#2A2A3D] border border-[#4A90E2]/60 rounded-xl p-5 shadow-lg">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-[#B0B0B0]">{title}</p>
+        <p className="text-3xl font-bold mt-2">{value}</p>
+      </div>
+      <div className="p-3 rounded-full bg-[#1C1C2D]" style={{ color: accent }}>
+        <Icon size={26} />
+      </div>
+    </div>
+  </div>
+);
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    totalUsersLoggedIn: 0,
+    totalUsers: 0,
+    activeUsers: 0,
+    blockedUsers: 0,
     totalFilesUploaded: 0,
+    totalVisualizations: 0,
     mostUsedChartTypes: [],
+    recentUploads: [],
   });
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    const fetchAdminData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          console.log("No token found, redirecting to login at", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }));
-          navigate("/login");
-          return;
-        }
-
-        const userRes = await api.get("/auth/me", {
-          headers: { "x-auth-token": token },
-        });
-        console.log("User response:", userRes.data);
-        const userRole = userRes.data.role; // Extract role
-        if (!userRole || userRole !== "admin") {
-          console.log("Non-admin role or undefined role detected, redirecting to dashboard at", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }));
-          navigate("/dashboard");
-          return;
-        }
-
-        const statsRes = await api.get("/admin/stats", {
-          headers: { "x-auth-token": token },
-        });
-        setStats({
-          totalUsersLoggedIn: statsRes.data.totalUsersLoggedIn || 0,
-          totalFilesUploaded: statsRes.data.totalFilesUploaded || 0,
-          mostUsedChartTypes: statsRes.data.mostUsedChartTypes || [],
-        });
-
-        const usersRes = await api.get("/admin/users", {
-          headers: { "x-auth-token": token },
-        });
-        setUsers(usersRes.data);
-      } catch (err) {
-        console.error("Error fetching admin data:", err.message, err.response?.data);
-        setError("Failed to load admin data. Check server or permissions.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAdminData();
-  }, [navigate]);
-
-  const handleLogout = () => {
-    console.log("Logging out at", new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }));
-    localStorage.removeItem("token");
-    navigate("/login");
-  };
-
-  const blockUser = async (userId) => {
+  const fetchAdminData = async () => {
+    setLoading(true);
+    setError("");
     try {
-      const token = localStorage.getItem("token");
-      await api.put(
-        `/admin/users/${userId}/block`,
-        {},
-        { headers: { "x-auth-token": token } }
-      );
-      setUsers(users.map((user) => (user._id === userId ? { ...user, isBlocked: true } : user)));
-      console.log(`User ${userId} blocked at`, new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }));
+      const me = await api.get("/auth/me");
+      if (me.data.role !== "admin") {
+        navigate("/dashboard");
+        return;
+      }
+
+      const [statsRes, usersRes] = await Promise.all([
+        api.get("/admin/stats"),
+        api.get("/admin/users"),
+      ]);
+      setStats(statsRes.data);
+      setUsers(usersRes.data || []);
     } catch (err) {
-      console.error("Error blocking user:", err.message);
-      setError("Failed to block user.");
+      console.error("Error fetching admin data:", err.response?.data || err.message);
+      setError(err.response?.data?.msg || "Failed to load admin dashboard.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const unblockUser = async (userId) => {
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
+
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return users;
+    return users.filter((user) =>
+      [user.username, user.role, user.isBlocked ? "blocked" : "active"]
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [users, search]);
+
+  const updateUserStatus = async (userId, action) => {
     try {
-      const token = localStorage.getItem("token");
-      await api.put(
-        `/admin/users/${userId}/unblock`,
-        {},
-        { headers: { "x-auth-token": token } }
+      await api.put(`/admin/users/${userId}/${action}`);
+      setUsers((current) =>
+        current.map((user) =>
+          user._id === userId ? { ...user, isBlocked: action === "block" } : user
+        )
       );
-      setUsers(users.map((user) => (user._id === userId ? { ...user, isBlocked: false } : user)));
-      console.log(`User ${userId} unblocked at`, new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }));
     } catch (err) {
-      console.error("Error unblocking user:", err.message);
-      setError("Failed to unblock user.");
+      alert(err.response?.data?.msg || `Failed to ${action} user.`);
     }
   };
 
   const deleteUser = async (userId) => {
+    if (!window.confirm("Delete this user and their uploads?")) return;
     try {
-      const token = localStorage.getItem("token");
-      await api.delete(`/admin/users/${userId}`, {
-        headers: { "x-auth-token": token },
-      });
-      setUsers(users.filter((user) => user._id !== userId));
-      console.log(`User ${userId} deleted at`, new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }));
+      await api.delete(`/admin/users/${userId}`);
+      setUsers((current) => current.filter((user) => user._id !== userId));
     } catch (err) {
-      console.error("Error deleting user:", err.message);
-      setError("Failed to delete user.");
+      alert(err.response?.data?.msg || "Failed to delete user.");
     }
   };
 
-  if (loading) return <div className="text-center p-4 text-[#FFFFFF] font-[Arial, sans-serif]">Loading...</div>;
-  if (error) return <div className="text-center p-4 text-[#FF4D4D] font-[Arial, sans-serif]">{error}</div>;
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (_) {}
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
+
+  if (loading) return <div className="text-center p-6 text-white">Loading admin dashboard...</div>;
 
   return (
-    <div className="min-h-screen bg-[#1C1C2D] text-[#FFFFFF] fontFamily-[Arial, sans-serif] overflow-hidden hover:bg-[#2A2A3D] transition duration-300">
-      <nav className="bg-[#2A2A3D] p-4 shadow-lg fixed w-full z-10">
+    <div className="min-h-screen bg-[#1C1C2D] text-white font-[Arial,sans-serif]">
+      <nav className="bg-[#2A2A3D] p-4 shadow-lg sticky top-0 z-10">
         <div className="container mx-auto flex justify-between items-center">
-          <svg width="100" height="40" viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg" className="excel-logo">
-            <g>
-              <text x="30" y="25" className="logo-text">Excel Analytics</text>
-              <rect x="5" y="10" width="5" height="20" fill="#4A90E2"/>
-              <rect x="12" y="15" width="5" height="15" fill="#4A90E2"/>
-              <rect x="19" y="5" width="5" height="25" fill="#4A90E2"/>
-            </g>
-          </svg>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-transparent border-2 border-[#4A90E2] text-[#4A90E2] rounded-lg hover:bg-[#4A90E2] hover:text-[#FFFFFF] focus:outline-none focus:ring-2 focus:ring-[#4A90E2] transition duration-300 transform hover:scale-105 font-[Arial, sans-serif] text-sm"
-          >
-            Logout
+          <div>
+            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+            <p className="text-sm text-[#B0B0B0]">Monitor users, uploads, and chart activity.</p>
+          </div>
+          <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 border border-[#4A90E2] text-[#4A90E2] rounded-lg hover:bg-[#4A90E2] hover:text-white">
+            <LogOut size={18} /> Logout
           </button>
         </div>
       </nav>
 
-      <main className="container mx-auto pt-24 pb-16 animate-fade-in-up">
-        <header className="bg-[#2A2A3D] p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
-          <h1 className="text-3xl font-bold text-center">Admin Dashboard</h1>
-          <p className="mt-2 text-[#B0B0B0] text-center font-[Arial, sans-serif] text-sm">Manage users and view platform statistics.</p>
-        </header>
+      <main className="container mx-auto p-6 space-y-6">
+        {error && <div className="bg-red-900/40 border border-red-400 text-red-100 p-4 rounded-lg">{error}</div>}
 
-        <section className="max-w-5xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-[#2A2A3D] p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
-            <h2 className="text-xl font-semibold text-[#4A90E2] mb-4 font-[Arial, sans-serif]">User Management</h2>
-            <div className="space-y-4">
-              <div className="bg-[#2A2A3D] p-4 rounded-lg border border-[#4A90E2]">
-                <h3 className="text-lg font-medium">Total Users Logged In</h3>
-                <p className="text-2xl text-[#4A90E2] font-[Arial, sans-serif]">{stats.totalUsersLoggedIn}</p>
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <StatCard title="Total Users" value={stats.totalUsers || 0} icon={Users} />
+          <StatCard title="Active Users" value={stats.activeUsers || 0} icon={Shield} accent="#22C55E" />
+          <StatCard title="Blocked Users" value={stats.blockedUsers || 0} icon={Shield} accent="#F97316" />
+          <StatCard title="Files Uploaded" value={stats.totalFilesUploaded || 0} icon={FileText} />
+          <StatCard title="Visualizations" value={stats.totalVisualizations || 0} icon={BarChart} accent="#A78BFA" />
+        </section>
+
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-[#2A2A3D] rounded-xl p-5 border border-[#4A90E2]/60">
+            <h2 className="text-xl font-semibold mb-4">Most Used Chart Types</h2>
+            {(stats.mostUsedChartTypes || []).length ? (
+              <div className="space-y-3">
+                {stats.mostUsedChartTypes.map((item) => (
+                  <div key={item.type}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>{item.type}</span>
+                      <span>{item.count}</span>
+                    </div>
+                    <div className="h-2 bg-[#1C1C2D] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#4A90E2]" style={{ width: `${Math.min(100, item.count * 20)}%` }} />
+                    </div>
+                  </div>
+                ))}
               </div>
-              {users.length > 0 ? (
-                <div className="overflow-y-auto max-h-64 space-y-2">
-                  <table className="w-full text-left border-collapse border border-[#4A90E2]">
-                    <thead>
-                      <tr className="bg-[#2A2A3D]">
-                        <th className="p-2 border-b border-[#4A90E2] text-[#FFFFFF] font-[Arial, sans-serif] text-sm">Index</th>
-                        <th className="p-2 border-b border-[#4A90E2] text-[#FFFFFF] font-[Arial, sans-serif] text-sm">Username</th>
-                        <th className="p-2 border-b border-[#4A90E2] text-[#FFFFFF] font-[Arial, sans-serif] text-sm">Status</th>
-                        <th className="p-2 border-b border-[#4A90E2] text-[#FFFFFF] font-[Arial, sans-serif] text-sm">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((user, index) => (
-                        <tr key={user._id} className="hover:bg-[#2A2A3D]">
-                          <td className="p-2 border-b border-[#4A90E2] text-[#B0B0B0] font-[Arial, sans-serif] text-sm">{index + 1}</td>
-                          <td className="p-2 border-b border-[#4A90E2] text-[#B0B0B0] font-[Arial, sans-serif] text-sm">{user.username}</td>
-                          <td className="p-2 border-b border-[#4A90E2] text-[#B0B0B0] font-[Arial, sans-serif] text-sm">{user.isBlocked ? "Blocked" : "Active"}</td>
-                          <td className="p-2 border-b border-[#4A90E2] text-[#B0B0B0] font-[Arial, sans-serif] text-sm">
-                            <div className="space-x-2">
-                              <button
-                                onClick={() => (user.isBlocked ? unblockUser(user._id) : blockUser(user._id))}
-                                className={`px-2 py-1 rounded ${user.isBlocked ? "bg-[#4A90E2] hover:bg-[#6BB9F4] focus:outline-none focus:ring-2 focus:ring-[#4A90E2]" : "bg-[#FF4D4D] hover:bg-[#FF6666] focus:outline-none focus:ring-2 focus:ring-[#FF4D4D]"} text-[#FFFFFF] font-[Arial, sans-serif] text-sm transition duration-300 transform hover:scale-105`}
-                              >
-                                {user.isBlocked ? "Unblock" : "Block"}
-                              </button>
-                              <button
-                                onClick={() => deleteUser(user._id)}
-                                className="px-2 py-1 bg-[#FFCC00] hover:bg-[#FFD700] focus:outline-none focus:ring-2 focus:ring-[#FFCC00] text-[#FFFFFF] font-[Arial, sans-serif] text-sm rounded transition duration-300 transform hover:scale-105"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-[#B0B0B0] font-[Arial, sans-serif] text-sm">No users to manage.</p>
-              )}
-            </div>
+            ) : (
+              <p className="text-[#B0B0B0]">No visualizations saved yet.</p>
+            )}
           </div>
 
-          <div className="bg-[#2A2A3D] p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
-            <h2 className="text-xl font-semibold text-[#4A90E2] mb-4 font-[Arial, sans-serif]">Statistics</h2>
-            <div className="space-y-4">
-              <div className="bg-[#2A2A3D] p-4 rounded-lg border border-[#4A90E2]">
-                <h3 className="text-lg font-medium">Total Files Uploaded</h3>
-                <p className="text-2xl text-[#4A90E2] font-[Arial, sans-serif]">{stats.totalFilesUploaded}</p>
+          <div className="bg-[#2A2A3D] rounded-xl p-5 border border-[#4A90E2]/60">
+            <h2 className="text-xl font-semibold mb-4">Recent Uploads</h2>
+            {(stats.recentUploads || []).length ? (
+              <div className="space-y-3 max-h-72 overflow-auto">
+                {stats.recentUploads.map((upload) => (
+                  <div key={upload._id} className="flex justify-between gap-4 border-b border-[#4A90E2]/30 pb-2">
+                    <div>
+                      <p className="font-medium">{upload.filename}</p>
+                      <p className="text-xs text-[#B0B0B0]">by {upload.username}</p>
+                    </div>
+                    <p className="text-xs text-[#B0B0B0]">{new Date(upload.uploadedAt).toLocaleString()}</p>
+                  </div>
+                ))}
               </div>
-              <div className="bg-[#2A2A3D] p-4 rounded-lg border border-[#4A90E2]">
-                <h3 className="text-lg font-medium">Total Users Logged In</h3>
-                <p className="text-2xl text-[#4A90E2] font-[Arial, sans-serif]">{stats.totalUsersLoggedIn}</p>
-              </div>
-              <div className="bg-[#2A2A3D] p-4 rounded-lg border border-[#4A90E2]">
-                <h3 className="text-lg font-medium">Most Used Chart Types</h3>
-                <ul className="text-[#B0B0B0] font-[Arial, sans-serif] text-sm">
-                  {stats.mostUsedChartTypes.map((type, index) => (
-                    <li key={index}>{type.type}: {type.count} times</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            ) : (
+              <p className="text-[#B0B0B0]">No uploads yet.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="bg-[#2A2A3D] rounded-xl p-5 border border-[#4A90E2]/60">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl font-semibold">User Management</h2>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search users..."
+              className="bg-[#1C1C2D] border border-[#4A90E2] rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="overflow-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[#1C1C2D]">
+                <tr>
+                  <th className="p-3">Username</th>
+                  <th className="p-3">Role</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Uploads</th>
+                  <th className="p-3">Charts</th>
+                  <th className="p-3">Joined</th>
+                  <th className="p-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr key={user._id} className="border-b border-[#4A90E2]/30">
+                    <td className="p-3 font-medium">{user.username}</td>
+                    <td className="p-3 capitalize">{user.role}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-1 rounded-full text-xs ${user.isBlocked ? "bg-red-500/20 text-red-200" : "bg-green-500/20 text-green-200"}`}>
+                        {user.isBlocked ? "Blocked" : "Active"}
+                      </span>
+                    </td>
+                    <td className="p-3">{user.uploadCount || 0}</td>
+                    <td className="p-3">{user.visualizationCount || 0}</td>
+                    <td className="p-3">{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}</td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => updateUserStatus(user._id, user.isBlocked ? "unblock" : "block")}
+                          className="px-3 py-1 rounded bg-[#4A90E2] hover:bg-[#6BB9F4]"
+                        >
+                          {user.isBlocked ? "Unblock" : "Block"}
+                        </button>
+                        <button onClick={() => deleteUser(user._id)} className="px-3 py-1 rounded bg-[#FF4D4D] hover:bg-[#FF6666]">
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       </main>
-
-      <footer className="bg-[#2A2A3D] p-4 mt-auto text-center">
-        <p className="text-sm text-[#B0B0B0] font-[Arial, sans-serif]">© 2025 Excel Analytics Platform. All rights reserved.</p>
-      </footer>
     </div>
   );
 };
-
-// Animations
-const styles = `
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .animate-fade-in-up {
-    animation: fadeInUp 1s ease-out;
-  }
-  .excel-logo .logo-text {
-    font-family: Arial, sans-serif;
-    font-size: 16px;
-    fill: #4A90E2;
-    font-weight: bold;
-  }
-`;
-const styleSheet = document.createElement("style");
-styleSheet.textContent = styles;
-document.head.appendChild(styleSheet);
 
 export default AdminDashboard;

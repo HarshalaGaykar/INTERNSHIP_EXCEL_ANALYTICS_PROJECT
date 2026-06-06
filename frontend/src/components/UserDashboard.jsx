@@ -533,11 +533,11 @@ const UserDashboard = ({ history, addToHistory, setHistory }) => { // Added setH
                         <button onClick={() => handleExport(item._id, "json")} className="px-2 py-1 bg-[#4A90E2] text-white rounded hover:bg-[#6BB9F4] text-xs transition duration-300">Export JSON</button>
                         <button onClick={() => handleExport(item._id, "xlsx")} className="px-2 py-1 bg-[#4A90E2] text-white rounded hover:bg-[#6BB9F4] text-xs transition duration-300">Export XLSX</button>
                       </div>
-                      {item.visualizations.length > 0 && (
+                      {(item.visualizations || []).length > 0 && (
                         <div className="mt-2">
                           <strong>Visualizations:</strong>
                           <ul className="ml-4 mt-2">
-                            {item.visualizations.map((viz, index) => (
+                            {(item.visualizations || []).map((viz, index) => (
                               <li key={index} className="mb-4">
                                 <div>
                                   <strong>Type:</strong> {viz.type}

@@ -146,6 +146,76 @@ const VisualizeData = () => {
     ];
   };
 
+  const getChartSummary = () => {
+    if (!xAxis || !yAxis || !data.rawData.length) {
+      return {
+        total: 0,
+        average: 0,
+        minimum: 0,
+        maximum: 0,
+        minLabel: "N/A",
+        maxLabel: "N/A",
+        validCount: 0,
+      };
+    }
+
+    const points = data.rawData
+      .map((row, index) => ({
+        label: row[xAxis] || `Row ${index + 1}`,
+        value: Number(row[yAxis]),
+      }))
+      .filter((point) => Number.isFinite(point.value));
+
+    if (!points.length) {
+      return {
+        total: 0,
+        average: 0,
+        minimum: 0,
+        maximum: 0,
+        minLabel: "N/A",
+        maxLabel: "N/A",
+        validCount: 0,
+      };
+    }
+
+    const total = points.reduce((sum, point) => sum + point.value, 0);
+    const minPoint = points.reduce((min, point) => (point.value < min.value ? point : min), points[0]);
+    const maxPoint = points.reduce((max, point) => (point.value > max.value ? point : max), points[0]);
+
+    return {
+      total,
+      average: total / points.length,
+      minimum: minPoint.value,
+      maximum: maxPoint.value,
+      minLabel: minPoint.label,
+      maxLabel: maxPoint.label,
+      validCount: points.length,
+    };
+  };
+
+  const formatNumber = (value) =>
+    Number(value || 0).toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+    });
+
+  const getChartExplanation = () => {
+    const summary = getChartSummary();
+    const chartName = chartType ? chartType.replace("-", " ").toUpperCase() : "Selected chart";
+    return [
+      `${chartName} Summary`,
+      `File: ${data.filename || "Unknown"}`,
+      `X-axis: ${xAxis || "Not selected"}`,
+      `Y-axis: ${yAxis || "Not selected"}`,
+      `Rows analyzed: ${data.rawData.length}`,
+      `Numeric values used: ${summary.validCount}`,
+      `Total ${yAxis}: ${formatNumber(summary.total)}`,
+      `Average ${yAxis}: ${formatNumber(summary.average)}`,
+      `Highest ${yAxis}: ${formatNumber(summary.maximum)} at ${summary.maxLabel}`,
+      `Lowest ${yAxis}: ${formatNumber(summary.minimum)} at ${summary.minLabel}`,
+      `Insight: This graph compares ${yAxis || "the selected value"} across ${xAxis || "the selected category"} to help identify high and low performing records.`,
+    ];
+  };
+
   const downloadPNG = () => {
     if (!chartType || !xAxis || !yAxis) {
       alert("Please select chart type and axes before downloading.");
@@ -208,9 +278,32 @@ const VisualizeData = () => {
 
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const width = pdf.internal.pageSize.getWidth();
-      const height = (canvas.height * width) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, width, height);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 12;
+      const chartWidth = pageWidth - margin * 2;
+      const chartHeight = Math.min(125, (canvas.height * chartWidth) / canvas.width);
+      const lines = getChartExplanation();
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(16);
+      pdf.text("Excel Analytics Visualization Report", margin, 16);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`, margin, 23);
+      pdf.addImage(imgData, "PNG", margin, 30, chartWidth, chartHeight);
+
+      let y = 40 + chartHeight;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(13);
+      pdf.text(lines[0], margin, y);
+      y += 8;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      lines.slice(1).forEach((line) => {
+        const wrapped = pdf.splitTextToSize(line, chartWidth);
+        pdf.text(wrapped, margin, y);
+        y += wrapped.length * 6;
+      });
       pdf.save(`${data.filename.split(".")[0]}_${chartType}_chart.pdf`);
     } else {
       console.error("Chart element not found for chartType:", chartType);
